@@ -18,6 +18,21 @@ import {
   Globe,
   Coins
 } from 'lucide-react';
+import { useAccount } from 'wagmi';
+import { WalletConnection } from '@/components/WalletConnection';
+import { CandidateRegistration } from '@/components/actions/CandidateRegistration';
+import { VotingInterface } from '@/components/actions/VotingInterface';
+import { ProposalCreation } from '@/components/actions/ProposalActions';
+import {
+  useCurrentPhase,
+  useCandidateCount,
+  useVoterCount,
+  useElectedMembers,
+  useCurrentLeader,
+  useProposalCount,
+  useTreasuryBalance,
+  useCurrentRate
+} from '@/hooks/useSmartConstitution';
 
 // Phase enum to match the smart contract
 enum Phase {
@@ -56,33 +71,21 @@ const phaseColors = {
   [Phase.Ratification]: "bg-emerald-500"
 };
 
-interface ConstitutionStats {
-  currentPhase: Phase;
-  candidateCount: number;
-  voterCount: number;
-  electedMembers: number;
-  currentLeader: string;
-  proposalCount: number;
-  draftCount: number;
-  registrationEnd?: Date;
-  electionEnd?: Date;
-  referendumEnd?: Date;
-}
-
 export default function SmartConstitutionInterface() {
-  const [stats, setStats] = useState<ConstitutionStats>({
-    currentPhase: Phase.Registration,
-    candidateCount: 0,
-    voterCount: 0,
-    electedMembers: 0,
-    currentLeader: '',
-    proposalCount: 0,
-    draftCount: 0
-  });
+  const { isConnected } = useAccount();
+  
+  // Contract data hooks
+  const { data: currentPhase } = useCurrentPhase();
+  const candidateCount = useCandidateCount();
+  const voterCount = useVoterCount();
+  const electedMembers = useElectedMembers();
+  const currentLeader = useCurrentLeader();
+  const proposalCount = useProposalCount();
+  const treasuryBalance = useTreasuryBalance();
+  const currentRate = useCurrentRate();
 
-  const [isConnected, setIsConnected] = useState(false);
-
-  const phaseProgress = ((stats.currentPhase + 1) / 6) * 100;
+  const phase = currentPhase !== undefined ? Number(currentPhase) : Phase.Registration;
+  const phaseProgress = ((phase + 1) / 6) * 100;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-muted/30 to-primary/5">
@@ -95,7 +98,7 @@ export default function SmartConstitutionInterface() {
                 <Gavel className="h-6 w-6 text-white" />
               </div>
               <div>
-                <h1 className="text-2xl font-bold gradient-primary bg-clip-text text-transparent">
+                <h1 className="text-2xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
                   Smart Constitution
                 </h1>
                 <p className="text-sm text-muted-foreground">
@@ -107,34 +110,31 @@ export default function SmartConstitutionInterface() {
             <div className="flex items-center space-x-4">
               <Badge 
                 variant="secondary" 
-                className={`${phaseColors[stats.currentPhase]} text-white`}
+                className={`${phaseColors[phase]} text-white`}
               >
                 <Clock className="h-3 w-3 mr-1" />
-                {phaseNames[stats.currentPhase]}
+                {phaseNames[phase]}
               </Badge>
               
-              <Button 
-                variant={isConnected ? "success" : "hero"}
-                onClick={() => setIsConnected(!isConnected)}
-              >
-                {isConnected ? (
-                  <>
-                    <CheckCircle className="h-4 w-4 mr-2" />
-                    Connected
-                  </>
-                ) : (
-                  <>
-                    <Globe className="h-4 w-4 mr-2" />
-                    Connect Wallet
-                  </>
-                )}
-              </Button>
+              <WalletConnection />
             </div>
           </div>
         </div>
       </header>
 
       <div className="container mx-auto px-4 py-8">
+        {/* Connection Warning */}
+        {!isConnected && (
+          <Card className="mb-8 border-orange-200 bg-orange-50 dark:border-orange-800 dark:bg-orange-950/20">
+            <CardContent className="pt-6">
+              <div className="flex items-center space-x-2 text-orange-800 dark:text-orange-200">
+                <AlertCircle className="h-5 w-5" />
+                <p>Please connect your wallet to interact with the Smart Constitution</p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Phase Progress */}
         <Card className="mb-8 shadow-card">
           <CardHeader>
@@ -143,7 +143,7 @@ export default function SmartConstitutionInterface() {
               <span>Transition Progress</span>
             </CardTitle>
             <CardDescription>
-              {phaseDescriptions[stats.currentPhase]}
+              {phaseDescriptions[phase]}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -169,7 +169,7 @@ export default function SmartConstitutionInterface() {
               <User className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-primary">{stats.candidateCount}</div>
+              <div className="text-2xl font-bold text-primary">{candidateCount}</div>
               <p className="text-xs text-muted-foreground">
                 Registered for election
               </p>
@@ -182,9 +182,9 @@ export default function SmartConstitutionInterface() {
               <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-primary">{stats.voterCount}</div>
+              <div className="text-2xl font-bold text-primary">{voterCount}</div>
               <p className="text-xs text-muted-foreground">
-                {stats.currentPhase >= Phase.Governance ? 'Referendum voters' : 'Election voters'}
+                {phase >= Phase.Governance ? 'Referendum voters' : 'Election voters'}
               </p>
             </CardContent>
           </Card>
@@ -195,7 +195,7 @@ export default function SmartConstitutionInterface() {
               <Shield className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-governance">{stats.electedMembers}/50</div>
+              <div className="text-2xl font-bold text-governance">{electedMembers}/50</div>
               <p className="text-xs text-muted-foreground">
                 Transitional Government
               </p>
@@ -204,13 +204,13 @@ export default function SmartConstitutionInterface() {
 
           <Card className="shadow-card hover:shadow-glow transition-all duration-300">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Proposals</CardTitle>
-              <FileText className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-sm font-medium">Treasury</CardTitle>
+              <Coins className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-accent">{stats.proposalCount}</div>
+              <div className="text-2xl font-bold text-accent">{parseFloat(treasuryBalance).toFixed(3)} ETH</div>
               <p className="text-xs text-muted-foreground">
-                {stats.currentPhase >= Phase.Governance ? 'Constitution drafts' : 'Active proposals'}
+                Rate: {currentRate}% APR
               </p>
             </CardContent>
           </Card>
@@ -227,188 +227,161 @@ export default function SmartConstitutionInterface() {
           </TabsList>
 
           <TabsContent value="overview" className="space-y-6">
-            <Card className="shadow-card">
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <Calendar className="h-5 w-5 text-primary" />
-                  <span>Current Phase: {phaseNames[stats.currentPhase]}</span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {stats.currentPhase === Phase.Registration && (
-                  <div className="space-y-4">
-                    <div className="p-4 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800">
-                      <h3 className="font-semibold text-blue-900 dark:text-blue-100 mb-2">Registration Phase</h3>
-                      <p className="text-blue-700 dark:text-blue-300 text-sm mb-3">
-                        Candidates and voters are being registered by neutral registrars. 
-                        Minimum requirements: 100 candidates and 1,200 voters.
-                      </p>
-                      <div className="flex flex-wrap gap-2">
-                        <Button variant="default" size="sm">
-                          <User className="h-4 w-4 mr-2" />
-                          Register as Candidate
-                        </Button>
-                        <Button variant="outline" size="sm">
-                          <Vote className="h-4 w-4 mr-2" />
-                          Check Voter Status
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {stats.currentPhase === Phase.Campaigning && (
-                  <div className="p-4 bg-yellow-50 dark:bg-yellow-950/20 rounded-lg border border-yellow-200 dark:border-yellow-800">
-                    <h3 className="font-semibold text-yellow-900 dark:text-yellow-100 mb-2">Campaign Period</h3>
-                    <p className="text-yellow-700 dark:text-yellow-300 text-sm mb-3">
-                      Candidates are campaigning and presenting their platforms to voters.
-                    </p>
-                    <Button variant="warning" size="sm">
-                      <FileText className="h-4 w-4 mr-2" />
-                      View Candidate Platforms
-                    </Button>
-                  </div>
-                )}
-
-                {stats.currentPhase === Phase.Election && (
-                  <div className="p-4 bg-green-50 dark:bg-green-950/20 rounded-lg border border-green-200 dark:border-green-800">
-                    <h3 className="font-semibold text-green-900 dark:text-green-100 mb-2">Election Day</h3>
-                    <p className="text-green-700 dark:text-green-300 text-sm mb-3">
-                      Voting is open for 24 hours. Use approval voting to select your preferred candidates.
-                    </p>
-                    <Button variant="success" size="sm">
-                      <Vote className="h-4 w-4 mr-2" />
-                      Cast Your Vote
-                    </Button>
-                  </div>
-                )}
-
-                {stats.currentPhase === Phase.Governance && (
-                  <div className="p-4 bg-purple-50 dark:bg-purple-950/20 rounded-lg border border-purple-200 dark:border-purple-800">
-                    <h3 className="font-semibold text-purple-900 dark:text-purple-100 mb-2">Governance Phase</h3>
-                    <p className="text-purple-700 dark:text-purple-300 text-sm mb-3">
-                      The Transitional Government is preparing constitution drafts and managing the transition.
-                    </p>
-                    <div className="flex flex-wrap gap-2">
-                      <Button variant="governance" size="sm">
-                        <FileText className="h-4 w-4 mr-2" />
-                        View Proposals
-                      </Button>
-                      <Button variant="outline" size="sm">
-                        <Gavel className="h-4 w-4 mr-2" />
-                        Submit Draft
-                      </Button>
-                    </div>
-                  </div>
-                )}
-
-                {stats.currentPhase === Phase.Referendum && (
-                  <div className="p-4 bg-orange-50 dark:bg-orange-950/20 rounded-lg border border-orange-200 dark:border-orange-800">
-                    <h3 className="font-semibold text-orange-900 dark:text-orange-100 mb-2">Constitutional Referendum</h3>
-                    <p className="text-orange-700 dark:text-orange-300 text-sm mb-3">
-                      Citizens are voting on the constitution drafts to determine the future governance structure.
-                    </p>
-                    <Button variant="warning" size="sm">
-                      <Vote className="h-4 w-4 mr-2" />
-                      Vote on Constitution
-                    </Button>
-                  </div>
-                )}
-
-                {stats.currentPhase === Phase.Ratification && (
-                  <div className="p-4 bg-emerald-50 dark:bg-emerald-950/20 rounded-lg border border-emerald-200 dark:border-emerald-800">
-                    <h3 className="font-semibold text-emerald-900 dark:text-emerald-100 mb-2">Constitution Ratified</h3>
-                    <p className="text-emerald-700 dark:text-emerald-300 text-sm mb-3">
-                      The new constitution has been ratified and the transition process is complete.
-                    </p>
-                    <Button variant="success" size="sm">
-                      <CheckCircle className="h-4 w-4 mr-2" />
-                      View Final Constitution
-                    </Button>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="candidates">
-            <Card className="shadow-card">
-              <CardHeader>
-                <CardTitle>Candidate Registration & Election</CardTitle>
-                <CardDescription>
-                  Register as a candidate or view current candidates running for the Transitional Government
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="flex flex-wrap gap-3">
-                    <Button variant="hero">
+            {stats.currentPhase === Phase.Registration && (
+              <div className="space-y-4">
+                <div className="p-4 bg-blue-50 dark:bg-blue-950/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                  <h3 className="font-semibold text-blue-900 dark:text-blue-100 mb-2">Registration Phase</h3>
+                  <p className="text-blue-700 dark:text-blue-300 text-sm mb-3">
+                    Candidates and voters are being registered by neutral registrars. 
+                    Minimum requirements: 100 candidates and 1,200 voters.
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    <Button variant="default" size="sm">
                       <User className="h-4 w-4 mr-2" />
                       Register as Candidate
                     </Button>
-                    <Button variant="outline">
-                      <Users className="h-4 w-4 mr-2" />
-                      View All Candidates
+                    <Button variant="outline" size="sm">
+                      <Vote className="h-4 w-4 mr-2" />
+                      Check Voter Status
                     </Button>
-                    {stats.currentPhase === Phase.Election && (
-                      <Button variant="success">
-                        <Vote className="h-4 w-4 mr-2" />
-                        Vote for Candidates
-                      </Button>
-                    )}
-                  </div>
-                  
-                  <div className="p-4 bg-muted/50 rounded-lg">
-                    <h4 className="font-semibold mb-2">Candidate Requirements</h4>
-                    <ul className="text-sm text-muted-foreground space-y-1">
-                      <li>• Pay registration fee (0.001 ETH)</li>
-                      <li>• Provide full name, biography, and website</li>
-                      <li>• Cannot be a neutral registrar or their relative</li>
-                      <li>• Must register during the registration period</li>
-                    </ul>
                   </div>
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+            )}
+
+            {stats.currentPhase === Phase.Campaigning && (
+              <div className="p-4 bg-yellow-50 dark:bg-yellow-950/20 rounded-lg border border-yellow-200 dark:border-yellow-800">
+                <h3 className="font-semibold text-yellow-900 dark:text-yellow-100 mb-2">Campaign Period</h3>
+                <p className="text-yellow-700 dark:text-yellow-300 text-sm mb-3">
+                  Candidates are campaigning and presenting their platforms to voters.
+                </p>
+                <Button variant="warning" size="sm">
+                  <FileText className="h-4 w-4 mr-2" />
+                  View Candidate Platforms
+                </Button>
+              </div>
+            )}
+
+            {stats.currentPhase === Phase.Election && (
+              <div className="p-4 bg-green-50 dark:bg-green-950/20 rounded-lg border border-green-200 dark:border-green-800">
+                <h3 className="font-semibold text-green-900 dark:text-green-100 mb-2">Election Day</h3>
+                <p className="text-green-700 dark:text-green-300 text-sm mb-3">
+                  Voting is open for 24 hours. Use approval voting to select your preferred candidates.
+                </p>
+                <Button variant="success" size="sm">
+                  <Vote className="h-4 w-4 mr-2" />
+                  Cast Your Vote
+                </Button>
+              </div>
+            )}
+
+            {stats.currentPhase === Phase.Governance && (
+              <div className="p-4 bg-purple-50 dark:bg-purple-950/20 rounded-lg border border-purple-200 dark:border-purple-800">
+                <h3 className="font-semibold text-purple-900 dark:text-purple-100 mb-2">Governance Phase</h3>
+                <p className="text-purple-700 dark:text-purple-300 text-sm mb-3">
+                  The Transitional Government is preparing constitution drafts and managing the transition.
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <Button variant="governance" size="sm">
+                    <FileText className="h-4 w-4 mr-2" />
+                    View Proposals
+                  </Button>
+                  <Button variant="outline" size="sm">
+                    <Gavel className="h-4 w-4 mr-2" />
+                    Submit Draft
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {stats.currentPhase === Phase.Referendum && (
+              <div className="p-4 bg-orange-50 dark:bg-orange-950/20 rounded-lg border border-orange-200 dark:border-orange-800">
+                <h3 className="font-semibold text-orange-900 dark:text-orange-100 mb-2">Constitutional Referendum</h3>
+                <p className="text-orange-700 dark:text-orange-300 text-sm mb-3">
+                  Citizens are voting on the constitution drafts to determine the future governance structure.
+                </p>
+                <Button variant="warning" size="sm">
+                  <Vote className="h-4 w-4 mr-2" />
+                  Vote on Constitution
+                </Button>
+              </div>
+            )}
+
+            {stats.currentPhase === Phase.Ratification && (
+              <div className="p-4 bg-emerald-50 dark:bg-emerald-950/20 rounded-lg border border-emerald-200 dark:border-emerald-800">
+                <h3 className="font-semibold text-emerald-900 dark:text-emerald-100 mb-2">Constitution Ratified</h3>
+                <p className="text-emerald-700 dark:text-emerald-300 text-sm mb-3">
+                  The new constitution has been ratified and the transition process is complete.
+                </p>
+                <Button variant="success" size="sm">
+                  <CheckCircle className="h-4 w-4 mr-2" />
+                  View Final Constitution
+                </Button>
+              </div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="candidates">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {phase === Phase.Registration && isConnected && (
+                <CandidateRegistration />
+              )}
+              
+              {phase === Phase.Election && isConnected && (
+                <VotingInterface />
+              )}
+              
+              <Card className="shadow-card">
+                <CardHeader>
+                  <CardTitle>Candidate Information</CardTitle>
+                  <CardDescription>
+                    Current candidates and election status
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div className="p-4 bg-muted/50 rounded-lg">
+                      <h4 className="font-semibold mb-2">Current Phase: {phaseNames[phase]}</h4>
+                      <p className="text-sm text-muted-foreground">
+                        {phaseDescriptions[phase]}
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
           </TabsContent>
 
           <TabsContent value="governance">
-            <Card className="shadow-card">
-              <CardHeader>
-                <CardTitle>Governance & Proposals</CardTitle>
-                <CardDescription>
-                  View and participate in Transitional Government proposals and decisions
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="flex flex-wrap gap-3">
-                    <Button variant="governance">
-                      <FileText className="h-4 w-4 mr-2" />
-                      Submit Proposal
-                    </Button>
-                    <Button variant="outline">
-                      <Vote className="h-4 w-4 mr-2" />
-                      Vote on Proposals
-                    </Button>
-                    <Button variant="outline">
-                      <Gavel className="h-4 w-4 mr-2" />
-                      View Leadership
-                    </Button>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {phase === Phase.Governance && isConnected && (
+                <ProposalCreation />
+              )}
+              
+              <Card className="shadow-card">
+                <CardHeader>
+                  <CardTitle>Governance Status</CardTitle>
+                  <CardDescription>
+                    Current leadership and proposal information
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {currentLeader && (
+                      <div className="p-4 bg-muted/50 rounded-lg">
+                        <h4 className="font-semibold mb-2">Current Leader</h4>
+                        <p className="text-sm font-mono">{currentLeader}</p>
+                      </div>
+                    )}
+                    
+                    <div className="p-4 bg-muted/50 rounded-lg">
+                      <h4 className="font-semibold mb-2">Active Proposals</h4>
+                      <p className="text-2xl font-bold">{proposalCount}</p>
+                    </div>
                   </div>
-                  
-                  <div className="p-4 bg-muted/50 rounded-lg">
-                    <h4 className="font-semibold mb-2">Governance Rules</h4>
-                    <ul className="text-sm text-muted-foreground space-y-1">
-                      <li>• Proposals require 30 member approvals (supermajority)</li>
-                      <li>• Each member can have only one active proposal</li>
-                      <li>• Leadership rotates every 2 weeks</li>
-                      <li>• All decisions are recorded on blockchain</li>
-                    </ul>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            </div>
           </TabsContent>
 
           <TabsContent value="finance">
