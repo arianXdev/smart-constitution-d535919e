@@ -87,6 +87,18 @@ export default function SmartConstitutionInterface() {
   const phase = currentPhase !== undefined ? Number(currentPhase) : Phase.Registration;
   const phaseProgress = ((phase + 1) / 6) * 100;
 
+  // Define stats object for the component
+  const stats = {
+    currentPhase: phase,
+    candidateCount,
+    voterCount,
+    treasuryBalance,
+    currentRate,
+    electedMembers,
+    currentLeader,
+    proposalCount
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-muted/30 to-primary/5">
       {/* Header */}
@@ -370,7 +382,7 @@ export default function SmartConstitutionInterface() {
                     {currentLeader && (
                       <div className="p-4 bg-muted/50 rounded-lg">
                         <h4 className="font-semibold mb-2">Current Leader</h4>
-                        <p className="text-sm font-mono">{currentLeader}</p>
+                        <p className="text-sm font-mono">{currentLeader ? String(currentLeader) : 'No leader selected'}</p>
                       </div>
                     )}
                     

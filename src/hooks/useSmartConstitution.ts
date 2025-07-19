@@ -11,7 +11,7 @@ export function useContractRead(functionName: string, args?: any[]) {
     abi: SmartConstitutionABI,
     functionName,
     args,
-  })
+  } as any)
 }
 
 export function useContractWrite() {
@@ -30,7 +30,7 @@ export function useContractWrite() {
         functionName,
         args,
         value: value ? parseEther(value) : undefined,
-      })
+      } as any)
     } catch (error: any) {
       // Handle revert messages
       let errorMessage = 'Transaction failed'
